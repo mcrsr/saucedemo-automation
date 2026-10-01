@@ -1,0 +1,72 @@
+name: SauceDemo Selenium Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      execution_id:
+        description: "Execution Id"
+        type: string
+        required: true
+
+      file_name:
+        description: "Input Excel File Name"
+        type: string
+        required: true
+
+      environment:
+        description: "Execution Environment"
+        type: choice
+        required: true
+        options:
+          - E2E1
+          - E2E2
+          - QA
+          - UAT
+          - PROD
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Display Execution Details
+        run: |
+          echo "Execution ID: ${{ inputs.execution_id }}"
+          echo "File Name: ${{ inputs.file_name }}"
+          echo "Environment: ${{ inputs.environment }}"
+
+      - name: Validate Excel File
+        run: |
+          FILE_PATH="${GITHUB_WORKSPACE}/input-data/${{ inputs.execution_id }}/${{ inputs.file_name }}"
+
+          if [ ! -f "$FILE_PATH" ]; then
+            echo "::error::Excel file not found: $FILE_PATH"
+            exit 1
+          fi
+
+          echo "Excel file found: $FILE_PATH"
+
+      - name: Run Selenium Tests
+        run: |
+          mvn -B clean test \
+            -Dexcel.path="${GITHUB_WORKSPACE}/input-data/${{ inputs.execution_id }}/${{ inputs.file_name }}" \
+            -Dexcel.sheet="${{ inputs.environment }}"
+
+      - name: Upload Surefire Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-${{ inputs.execution_id }}
+          path: target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 15
