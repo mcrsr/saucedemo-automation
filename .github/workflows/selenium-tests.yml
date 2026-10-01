@@ -1,3 +1,4 @@
+
 name: SauceDemo Selenium Tests
 
 on:
@@ -40,27 +41,34 @@ jobs:
           cache: maven
 
       - name: Display Execution Details
+        shell: pwsh
         run: |
-          echo "Execution ID: ${{ inputs.execution_id }}"
-          echo "File Name: ${{ inputs.file_name }}"
-          echo "Environment: ${{ inputs.environment }}"
+          Write-Host "Execution ID: ${{ inputs.execution_id }}"
+          Write-Host "File Name: ${{ inputs.file_name }}"
+          Write-Host "Environment: ${{ inputs.environment }}"
 
       - name: Validate Excel File
+        shell: pwsh
         run: |
-          FILE_PATH="${GITHUB_WORKSPACE}/input-data/${{ inputs.execution_id }}/${{ inputs.file_name }}"
+          $filePath = Join-Path "${{ github.workspace }}" "input-data/${{ inputs.execution_id }}/${{ inputs.file_name }}"
 
-          if [ ! -f "$FILE_PATH" ]; then
-            echo "::error::Excel file not found: $FILE_PATH"
-            exit 1
-          fi
+          if (!(Test-Path -LiteralPath $filePath -PathType Leaf)) {
+              Write-Error "Excel file not found: $filePath"
+              exit 1
+          }
 
-          echo "Excel file found: $FILE_PATH"
+          Write-Host "Excel file found: $filePath"
 
       - name: Run Selenium Tests
+        shell: pwsh
         run: |
-          mvn -B clean test \
-            -Dexcel.path="${GITHUB_WORKSPACE}/input-data/${{ inputs.execution_id }}/${{ inputs.file_name }}" \
-            -Dexcel.sheet="${{ inputs.environment }}"
+          $filePath = Join-Path "${{ github.workspace }}" "input-data/${{ inputs.execution_id }}/${{ inputs.file_name }}"
+
+          mvn -B clean test "-Dexcel.path=$filePath" "-Dexcel.sheet=${{ inputs.environment }}"
+
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
 
       - name: Upload Surefire Reports
         if: always()
